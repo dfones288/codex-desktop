@@ -1,0 +1,38 @@
+{
+  "name": "codex-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop visual client for a locally installed Codex CLI.",
+  "author": "MangoWork",
+  "main": "dist/main/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc -p tsconfig.electron.json && tsc -p tsconfig.renderer.json --noEmit && vite build",
+    "package": "npm run build && node scripts/package.mjs",
+    "package:mac": "npm run build && node scripts/package.mjs --platform=mac",
+    "package:win": "npm run build && node scripts/package.mjs --platform=win",
+    "typecheck": "tsc -p tsconfig.electron.json --noEmit && tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "concurrently": "latest",
+    "electron": "latest",
+    "electron-builder": "^26.15.3",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest",
+    "wait-on": "latest"
+  }
+}

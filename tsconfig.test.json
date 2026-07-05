@@ -1,0 +1,39 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
+    "noEmit": true
+  },
+  "include": [
+    "tests/**/*.ts",
+    "scripts/**/*.mjs",
+    "scripts/**/*.d.mts",
+    "src/main/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/renderer/activitySegments.ts",
+    "src/renderer/branchSearch.ts",
+    "src/renderer/composerAttachments.ts",
+    "src/renderer/composerTextarea.ts",
+    "src/renderer/codeHighlight.ts",
+    "src/renderer/displayMessages.ts",
+    "src/renderer/messageMerge.ts",
+    "src/renderer/messageParts.ts",
+    "src/renderer/sessionHistory.ts",
+    "src/renderer/navigationState.ts",
+    "src/renderer/projectOnboarding.ts",
+    "src/renderer/projectSelector.ts",
+    "src/renderer/projectThreads.ts",
+    "src/renderer/projectStateStorage.ts",
+    "src/renderer/projects.ts",
+    "src/main/processEnv.ts",
+    "src/main/codexHistory.ts"
+  ]
+}
