@@ -47,7 +47,7 @@ describe('projectCandidatesFromHistories', () => {
     ])).toEqual([
       { id: '/tmp/tooling', name: 'tooling', path: '/tmp/tooling', lastUsedAt: '2026-06-21T03:00:00.000Z', threadCount: 1 },
       { id: '/tmp/app', name: 'app', path: '/tmp/app', lastUsedAt: '2026-06-21T02:00:00.000Z', threadCount: 2 },
-      { id: '/Users/mac/Documents/MangoWork/ai_place/icode/C:\\Users\\alice\\Desktop\\mywebsite', name: 'mywebsite', path: '/Users/mac/Documents/MangoWork/ai_place/icode/C:\\Users\\alice\\Desktop\\mywebsite', lastUsedAt: '2026-06-21T01:30:00.000Z', threadCount: 1 }
+      { id: 'C:\\Users\\alice\\Desktop\\mywebsite', name: 'mywebsite', path: 'C:\\Users\\alice\\Desktop\\mywebsite', lastUsedAt: '2026-06-21T01:30:00.000Z', threadCount: 1 }
     ]);
   });
 });

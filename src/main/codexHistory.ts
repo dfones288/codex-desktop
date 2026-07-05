@@ -218,6 +218,9 @@ async function findJsonlFiles(root: string): Promise<string[]> {
 }
 
 function normalizePath(value: string): string {
+  if (/^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\')) {
+    return path.win32.normalize(value);
+  }
   return path.resolve(value);
 }
 
