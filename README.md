@@ -1,4 +1,5 @@
 # Codex Desktop
+![image](images/ScreenShot_2026-07-07_105628_935.png)
 
 An unofficial desktop client for the local Codex CLI. Codex Desktop turns `codex exec` into a visual, project-aware workspace with threads, skills, attachments, model controls, activity logs, and native desktop packaging.
 

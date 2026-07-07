@@ -57,6 +57,10 @@ export interface ResumeSessionRequest {
   permissionMode?: PermissionMode;
 }
 
+export interface DeleteHistoryRequest {
+  filePath: string;
+}
+
 export interface StartSessionRequest {
   cwd: string;
   command?: string;
@@ -194,6 +198,7 @@ export interface CodexDesktopApi {
   getSession(sessionId: string): Promise<CodexSession | undefined>;
   resumeSession(request: ResumeSessionRequest): Promise<CodexSession>;
   listHistories(cwd: string): Promise<CodexThreadHistory[]>;
+  deleteHistory(request: DeleteHistoryRequest): Promise<void>;
   listModels(): Promise<CodexModelInfo[]>;
   listSkills(): Promise<CodexSkillInfo[]>;
   getSkillDetail(skillId: string): Promise<CodexSkillDetail | undefined>;

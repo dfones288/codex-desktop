@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, rm, stat } from 'node:fs/promises';
 import { extractCodexErrorText, extractCodexProcessText } from './codexEvents.js';
 import type { CodexProjectCandidate, SessionMessage } from '../shared/types.js';
 
@@ -60,6 +60,19 @@ export function projectCandidatesFromHistories(histories: CodexThreadHistory[]):
 export async function listCodexHistoriesByCwd(cwd: string): Promise<CodexThreadHistory[]> {
   const histories = await listCodexHistories();
   return histories.filter((history) => normalizePath(history.cwd) === normalizePath(cwd));
+}
+
+export async function deleteCodexHistoryFile(filePath: string, codexHome = path.join(homedir(), '.codex')): Promise<void> {
+  const sessionsRoot = path.resolve(codexHome, 'sessions');
+  const targetPath = path.resolve(filePath);
+  const relativeTarget = path.relative(sessionsRoot, targetPath);
+  if (relativeTarget.startsWith('..') || path.isAbsolute(relativeTarget)) {
+    throw new Error('Cannot delete history outside Codex sessions');
+  }
+  if (path.extname(targetPath) !== '.jsonl') {
+    throw new Error('Can only delete Codex jsonl history files');
+  }
+  await rm(targetPath, { force: true });
 }
 
 export async function loadCodexHistoryMessages(filePath: string): Promise<SessionMessage[]> {

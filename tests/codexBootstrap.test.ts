@@ -2,23 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { buildCodexInstallPlan, buildPackagedAppPath } from '../src/main/codexBootstrap.js';
 
 describe('buildCodexInstallPlan', () => {
-  it('prefers the official macOS shell installer when Codex CLI is missing', () => {
+  it('recommends the npm package install command on macOS when Codex CLI is missing', () => {
     expect(buildCodexInstallPlan('darwin', {
       codexInstalled: false,
       brewInstalled: true,
       wingetInstalled: false
     })).toEqual([
-      { label: 'Install Codex CLI', command: 'bash', args: ['-lc', 'curl -fsSL https://chatgpt.com/codex/install.sh | sh'] }
+      { label: 'Install Codex CLI', command: 'npm', args: ['install', '-g', '@openai/codex'] }
     ]);
   });
 
-  it('uses the Windows PowerShell installer when Codex CLI is missing', () => {
+  it('recommends the npm package install command on Windows when Codex CLI is missing', () => {
     expect(buildCodexInstallPlan('win32', {
       codexInstalled: false,
       brewInstalled: false,
       wingetInstalled: true
     })).toEqual([
-      { label: 'Install Codex CLI', command: 'powershell', args: ['-ExecutionPolicy', 'ByPass', '-c', 'irm https://chatgpt.com/codex/install.ps1 | iex'] }
+      { label: 'Install Codex CLI', command: 'npm', args: ['install', '-g', '@openai/codex'] }
     ]);
   });
 

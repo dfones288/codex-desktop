@@ -52,8 +52,7 @@ export function buildCodexInstallPlan(platform: NodeJS.Platform, availability: C
   const steps: InstallStep[] = [];
 
   if (!availability.codexInstalled) {
-    if (platform === 'win32') steps.push({ label: 'Install Codex CLI', command: 'powershell', args: ['-ExecutionPolicy', 'ByPass', '-c', 'irm https://chatgpt.com/codex/install.ps1 | iex'] });
-    else steps.push({ label: 'Install Codex CLI', command: 'bash', args: ['-lc', 'curl -fsSL https://chatgpt.com/codex/install.sh | sh'] });
+    steps.push({ label: 'Install Codex CLI', command: 'npm', args: ['install', '-g', '@openai/codex'] });
   }
 
   return steps;

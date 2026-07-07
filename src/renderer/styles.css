@@ -1142,9 +1142,45 @@ button:disabled, textarea:disabled, select:disabled { cursor: not-allowed; opaci
   font-size: 13.5px;
   font-weight: 710;
 }
+.history-thread {
+  position: relative;
+}
 .thread-time {
   color: #a3a3a7;
   font-size: 13px;
+}
+.delete-thread-button {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  color: #a3a3a7;
+  background: transparent;
+  border-radius: 7px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity .14s ease, color .14s ease, background .14s ease;
+}
+.delete-thread-button svg {
+  width: 17px;
+  height: 17px;
+}
+.history-thread:not(.running-thread):hover .thread-time,
+.history-thread:not(.running-thread):focus-within .thread-time {
+  opacity: 0;
+}
+.history-thread:not(.running-thread):hover .delete-thread-button,
+.history-thread:not(.running-thread):focus-within .delete-thread-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+.delete-thread-button:hover {
+  color: #ff8b81;
+  background: rgba(255,255,255,.08);
 }
 .remove-project {
   display: none;
@@ -1429,10 +1465,22 @@ input,
   box-shadow: 0 22px 70px rgba(0,0,0,.38);
 }
 .command-search {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 2px 16px 12px;
   color: #a7a7ab;
   font-size: 13px;
   font-weight: 650;
+}
+.command-search span {
+  overflow: hidden;
+  color: #f0f0f2;
+  font-size: 12px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .command-section {
   padding: 11px 16px 7px;
@@ -1452,7 +1500,7 @@ input,
   border-radius: 14px;
 }
 .command-item:hover,
-.command-item:first-of-type {
+.command-item.active {
   background: rgba(255,255,255,.075);
 }
 .command-icon {
@@ -1480,6 +1528,12 @@ input,
   font-size: 12px;
   font-style: normal;
   font-weight: 680;
+}
+.command-empty {
+  padding: 14px 16px 12px;
+  color: #85858a;
+  font-size: 12px;
+  font-weight: 650;
 }
 .reference-chips {
   display: flex;
@@ -1929,6 +1983,61 @@ input,
 .skill-modal-actions .try-skill {
   color: #202020;
   background: #f0f0f1;
+}
+.delete-history-modal {
+  width: min(430px, calc(100vw - 52px));
+  max-height: none;
+}
+.delete-history-header {
+  padding-top: 24px;
+}
+.delete-history-header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.delete-history-header h2 {
+  margin: 0;
+  color: #f1f1f2;
+  font-size: 18px;
+  font-weight: 720;
+  letter-spacing: -.02em;
+}
+.delete-history-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #c4c4c8;
+  background: rgba(255,255,255,.07);
+  border-radius: 11px;
+}
+.delete-history-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.delete-history-body {
+  padding-top: 18px;
+}
+.delete-history-body p {
+  margin: 0 0 12px;
+  color: #b7b7bb;
+  font-size: 13px;
+  font-weight: 600;
+}
+.delete-history-body strong {
+  display: block;
+  overflow: hidden;
+  color: #eeeeef;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.delete-history-actions {
+  grid-template-columns: auto 1fr auto;
+  padding-top: 16px;
 }
 .branch-menu {
   position: absolute;

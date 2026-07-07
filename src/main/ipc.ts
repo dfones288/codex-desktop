@@ -3,14 +3,15 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { listCodexHistoriesByCwd, listCodexProjectCandidates } from './codexHistory.js';
+import { deleteCodexHistoryFile, listCodexHistoriesByCwd, listCodexProjectCandidates } from './codexHistory.js';
 import { listCodexModels } from './codexModels.js';
 import { getCodexBootstrapStatus, installCodexCli } from './codexBootstrap.js';
 import { CodexExecManager } from './codexExecManager.js';
 import { listGitBranches, switchGitBranch } from './gitBranches.js';
+import { listProjectFiles } from './projectFiles.js';
 import { disableSkill, enableSkill, getSkillDetail, listLocalSkills, openSkillFolder, uninstallSkill } from './skillStore.js';
 import { SessionStore } from './sessionStore.js';
-import type { OpenExternalTargetRequest, ProjectFileInfo, ReadLocalImageRequest, ReadLocalImageResult, ResumeSessionRequest, SavePastedImageRequest, SendInputRequest, StartSessionRequest, StopSessionRequest, SwitchGitBranchRequest } from '../shared/types.js';
+import type { DeleteHistoryRequest, OpenExternalTargetRequest, ReadLocalImageRequest, ReadLocalImageResult, ResumeSessionRequest, SavePastedImageRequest, SendInputRequest, StartSessionRequest, StopSessionRequest, SwitchGitBranchRequest } from '../shared/types.js';
 
 export const channels = {
   startSession: 'codex:start-session',
@@ -21,6 +22,7 @@ export const channels = {
   listHistories: 'codex:list-histories',
   listModels: 'codex:list-models',
   listSkills: 'codex:list-skills',
+  deleteHistory: 'codex:delete-history',
   getSkillDetail: 'codex:get-skill-detail',
   setSkillEnabled: 'codex:set-skill-enabled',
   uninstallSkill: 'codex:uninstall-skill',
@@ -48,6 +50,7 @@ export function registerIpc(codexManager: CodexExecManager, sessions: SessionSto
   ipcMain.handle(channels.stopSession, async (_event, request: StopSessionRequest) => codexManager.stop(request));
   ipcMain.handle(channels.getSession, async (_event, sessionId: string) => sessions.get(sessionId));
   ipcMain.handle(channels.listHistories, async (_event, cwd: string) => listCodexHistoriesByCwd(cwd));
+  ipcMain.handle(channels.deleteHistory, async (_event, request: DeleteHistoryRequest) => deleteCodexHistoryFile(request.filePath));
   ipcMain.handle(channels.listModels, async () => listCodexModels());
   ipcMain.handle(channels.getCodexBootstrapStatus, async () => getCodexBootstrapStatus());
   ipcMain.handle(channels.installCodexCli, async () => installCodexCli((payload) => {
@@ -117,26 +120,6 @@ async function openExternalTarget(request: OpenExternalTargetRequest): Promise<v
 
 function isImagePath(filePath: string): boolean {
   return /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif|tiff?)$/i.test(filePath);
-}
-
-async function listProjectFiles(cwd: string): Promise<ProjectFileInfo[]> {
-  const root = path.resolve(cwd);
-  const files = await findProjectFiles(root, root);
-  return files.slice(0, 600);
-}
-
-async function findProjectFiles(root: string, current: string): Promise<ProjectFileInfo[]> {
-  const entries = await fs.readdir(current, { withFileTypes: true }).catch(() => []);
-  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'coverage']);
-  const nested = await Promise.all(entries.map(async (entry) => {
-    if (ignored.has(entry.name)) return [];
-    const fullPath = path.join(current, entry.name);
-    if (entry.isDirectory()) return findProjectFiles(root, fullPath);
-    if (!entry.isFile()) return [];
-    const relativePath = path.relative(root, fullPath);
-    return [{ path: fullPath, relativePath }];
-  }));
-  return nested.flat().sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 }
 
 export async function readLocalImage(request: ReadLocalImageRequest): Promise<ReadLocalImageResult> {

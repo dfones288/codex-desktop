@@ -30,6 +30,7 @@
     "src/renderer/navigationState.ts",
     "src/renderer/projectOnboarding.ts",
     "src/renderer/projectSelector.ts",
+    "src/renderer/projectFileSearch.ts",
     "src/renderer/projectThreads.ts",
     "src/renderer/projectStateStorage.ts",
     "src/renderer/projects.ts",

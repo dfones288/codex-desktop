@@ -12,6 +12,7 @@ import { composerTextareaHeight } from './composerTextarea.js';
 import { visibleTranscriptMessages } from './displayMessages.js';
 import { mergeOutputIntoMessages } from './messageMerge.js';
 import { splitUserMessageParts } from './messageParts.js';
+import { searchProjectFiles } from './projectFileSearch.js';
 import { viewAfterOpeningThread } from './navigationState.js';
 import { projectSelectorRows } from './projectSelector.js';
 import { canContinueProjectOnboarding, shouldBlockSendWithoutProject, shouldOpenProjectOnboarding } from './projectOnboarding.js';
@@ -62,6 +63,18 @@ function supportedReasoningForModel(modelInfo?: CodexModelInfo): ReasoningEffort
   return levels.map(normalizeReasoningLevel).filter((level, index, all) => all.indexOf(level) === index);
 }
 
+function commandMatches(value: string, query: string): boolean {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return true;
+  const haystack = value.toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
+function trailingCommandQuery(value: string, marker: '/' | '@'): string | undefined {
+  const match = new RegExp(`\\${marker}([^\\s]*)$`).exec(value);
+  return match?.[1] ?? undefined;
+}
+
 function formatRelativeTime(iso: string): string {
   const deltaMs = Math.max(0, Date.now() - Date.parse(iso));
   const minutes = Math.floor(deltaMs / 60000);
@@ -103,8 +116,11 @@ function App(): React.ReactElement {
   const [skillSearch, setSkillSearch] = useState('');
   const [selectedSkillDetail, setSelectedSkillDetail] = useState<CodexSkillDetail | undefined>();
   const [skillsLoading, setSkillsLoading] = useState(false);
+  const [historyDeleteTarget, setHistoryDeleteTarget] = useState<{ project: ProjectEntry; history: CodexThreadHistory } | undefined>();
   const [availableFiles, setAvailableFiles] = useState<ProjectFileInfo[]>([]);
   const [commandMenu, setCommandMenu] = useState<'skills' | 'files' | undefined>();
+  const [commandQuery, setCommandQuery] = useState('');
+  const [commandActiveIndex, setCommandActiveIndex] = useState(0);
   const [branchInfoByProject, setBranchInfoByProject] = useState<Record<string, GitBranchInfo>>({});
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [inlineMenuOpen, setInlineMenuOpen] = useState<'model' | 'reasoning' | 'permission' | undefined>();
@@ -141,12 +157,15 @@ function App(): React.ReactElement {
   const activeProject = useMemo(() => projectState.projects.find((project) => project.id === projectState.activeProjectId) ?? projectState.projects[0], [projectState]);
   const openProjectMenu = useMemo(() => projectState.projects.find((project) => project.id === openProjectMenuId), [openProjectMenuId, projectState.projects]);
   const gitBranches = activeProject ? branchInfoByProject[activeProject.id] ?? emptyGitBranches : emptyGitBranches;
+  const enabledSkills = useMemo(() => availableSkills.filter((skill) => skill.enabled !== false), [availableSkills]);
+  const commandItems = useMemo(() => commandMenu === 'skills'
+    ? enabledSkills.filter((skill) => commandMatches(`${skill.name} ${skill.description ?? ''} ${skill.id}`, commandQuery)).slice(0, 12)
+    : searchProjectFiles(availableFiles, commandQuery, 18), [availableFiles, commandMenu, commandQuery, enabledSkills]);
   const selectedModelInfo = useMemo(() => availableModels.find((option) => option.slug === model), [availableModels, model]);
   const supportedReasoningOptions = useMemo(() => supportedReasoningForModel(selectedModelInfo), [selectedModelInfo]);
   const activeStatus = session?.status ?? 'idle';
   const canSend = activeStatus !== 'running' && (input.trim().length > 0 || attachments.length > 0 || selectedSkills.length > 0 || selectedFiles.length > 0);
   const currentTitle = session?.messages.find((message) => message.role === 'user')?.text.slice(0, 18) || 'New thread';
-  const enabledSkills = useMemo(() => availableSkills.filter((skill) => skill.enabled !== false), [availableSkills]);
 
   useEffect(() => {
     projectStateRef.current = projectState;
@@ -316,6 +335,12 @@ function App(): React.ReactElement {
   }, [input, attachments.length, selectedSkills.length, selectedFiles.length, activeView]);
 
   useEffect(() => {
+    if (commandActiveIndex >= commandItems.length) {
+      setCommandActiveIndex(Math.max(0, commandItems.length - 1));
+    }
+  }, [commandActiveIndex, commandItems.length]);
+
+  useEffect(() => {
     window.addEventListener('resize', scheduleComposerTextareaResize);
     return () => {
       window.removeEventListener('resize', scheduleComposerTextareaResize);
@@ -452,6 +477,44 @@ function App(): React.ReactElement {
     activateSession(nextSession);
   }
 
+  function requestDeleteHistory(event: React.MouseEvent<HTMLButtonElement>, project: ProjectEntry, history: CodexThreadHistory): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!history.filePath) return;
+    setHistoryDeleteTarget({ project, history });
+  }
+
+  async function confirmDeleteHistory(): Promise<void> {
+    const target = historyDeleteTarget;
+    if (!target) return;
+    setHistoryDeleteTarget(undefined);
+    try {
+      await window.codexDesktop.deleteHistory({ filePath: target.history.filePath });
+      const matchingSessionIds = Object.values(sessionsByIdRef.current)
+        .filter((item) => normalizeProjectPath(item.cwd) === normalizeProjectPath(target.project.path) && item.codexConversationId === target.history.id)
+        .map((item) => item.id);
+      const nextSessions = { ...sessionsByIdRef.current };
+      for (const sessionId of matchingSessionIds) delete nextSessions[sessionId];
+      sessionsByIdRef.current = nextSessions;
+      setSessionsById(nextSessions);
+      delete recentSessionsRef.current[target.history.id];
+      setHistoriesByProject((current) => ({
+        ...current,
+        [target.project.id]: (current[target.project.id] || []).filter((history) => history.id !== target.history.id)
+      }));
+      if (sessionRef.current?.codexConversationId === target.history.id) activateSession(undefined);
+      void refreshProjectHistories(target.project.path);
+    } catch (errorValue) {
+      setError(errorValue instanceof Error ? errorValue.message : 'Failed to delete thread');
+    }
+  }
+
+  function handleThreadRowKeyDown(event: React.KeyboardEvent<HTMLElement>, action: () => void): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    action();
+  }
+
   async function addProjectFromPicker(): Promise<void> {
     const result = await window.codexDesktop.selectDirectory();
     if (!result.canceled && result.path) {
@@ -570,6 +633,24 @@ function App(): React.ReactElement {
   }
 
   function handleComposerKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    if (commandMenu) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        setCommandActiveIndex((current) => commandItems.length === 0 ? 0 : (current + direction + commandItems.length) % commandItems.length);
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === 'Tab') && commandItems.length > 0) {
+        event.preventDefault();
+        selectCommandItem(commandItems[Math.min(commandActiveIndex, commandItems.length - 1)]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeCommandMenu();
+        return;
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void sendPrompt();
@@ -578,10 +659,19 @@ function App(): React.ReactElement {
 
   function handleComposerChange(value: string): void {
     setInput(value);
-    const last = value.at(-1);
-    if (last === '/') setCommandMenu('skills');
-    else if (last === '@') setCommandMenu('files');
-    else if (commandMenu && !/[\/@][^\s]*$/.test(value)) setCommandMenu(undefined);
+    const skillQuery = trailingCommandQuery(value, '/');
+    const fileQuery = trailingCommandQuery(value, '@');
+    if (skillQuery !== undefined) {
+      setCommandMenu('skills');
+      setCommandQuery(skillQuery);
+      setCommandActiveIndex(0);
+    } else if (fileQuery !== undefined) {
+      setCommandMenu('files');
+      setCommandQuery(fileQuery);
+      setCommandActiveIndex(0);
+    } else if (commandMenu) {
+      closeCommandMenu();
+    }
   }
 
   function scheduleComposerTextareaResize(): void {
@@ -625,14 +715,26 @@ function App(): React.ReactElement {
 
   function selectSkill(skill: CodexSkillInfo): void {
     setSelectedSkills((current) => current.some((item) => item.id === skill.id) ? current : [...current, { id: skill.id, name: skill.name, description: skill.description }]);
-    setInput((current) => current.replace(/\/$/, '').trimStart());
-    setCommandMenu(undefined);
+    setInput((current) => current.replace(/\/[^\s]*$/, '').trimStart());
+    closeCommandMenu();
   }
 
   function selectFile(file: ProjectFileInfo): void {
     setSelectedFiles((current) => current.some((item) => item.path === file.path) ? current : [...current, file]);
-    setInput((current) => current.replace(/@$/, '').trimStart());
+    setInput((current) => current.replace(/@[^\s]*$/, '').trimStart());
+    closeCommandMenu();
+  }
+
+  function selectCommandItem(item: CodexSkillInfo | ProjectFileInfo | undefined): void {
+    if (!item) return;
+    if (commandMenu === 'skills' && 'id' in item) selectSkill(item);
+    if (commandMenu === 'files' && 'relativePath' in item) selectFile(item);
+  }
+
+  function closeCommandMenu(): void {
     setCommandMenu(undefined);
+    setCommandQuery('');
+    setCommandActiveIndex(0);
   }
 
   function removeSkill(id: string): void {
@@ -782,13 +884,33 @@ function App(): React.ReactElement {
                       <span className="thread-title">New thread</span><span className="thread-time">{row.active ? 'now' : '+'}</span>
                     </button>
                   ) : row.kind === 'session' ? (
-                    <button className={`thread-item ${row.active ? 'active-thread' : ''}`} key={row.session.id} onClick={() => openCachedSession(project, row.session)}>
+                    <div
+                      className={`thread-item ${row.active ? 'active-thread' : ''}`}
+                      key={row.session.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openCachedSession(project, row.session)}
+                      onKeyDown={(event) => handleThreadRowKeyDown(event, () => openCachedSession(project, row.session))}
+                    >
                       <span className="thread-title">{row.title}</span><span className="thread-time">{row.running ? <ThreadSpinner /> : formatRelativeTime(row.session.updatedAt)}</span>
-                    </button>
+                    </div>
                   ) : (
-                    <button className={`thread-item ${row.active ? 'active-thread' : ''}`} key={row.history.id} onClick={() => void openHistory(project, row.history)}>
-                      <span className="thread-title">{row.history.title}</span><span className="thread-time">{row.running ? <ThreadSpinner /> : formatRelativeTime(row.history.updatedAt)}</span>
-                    </button>
+                    <div
+                      className={`thread-item history-thread ${row.active ? 'active-thread' : ''} ${row.running ? 'running-thread' : ''}`}
+                      key={row.history.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => void openHistory(project, row.history)}
+                      onKeyDown={(event) => handleThreadRowKeyDown(event, () => { void openHistory(project, row.history); })}
+                    >
+                      <span className="thread-title">{row.history.title}</span>
+                      <span className="thread-time">{row.running ? <ThreadSpinner /> : formatRelativeTime(row.history.updatedAt)}</span>
+                      {!row.running ? (
+                        <button className="delete-thread-button" type="button" title="Delete thread" aria-label={`Delete ${row.history.title}`} onClick={(event) => requestDeleteHistory(event, project, row.history)}>
+                          <DeleteThreadIcon />
+                        </button>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
               );
@@ -810,6 +932,14 @@ function App(): React.ReactElement {
 
       {bootstrapStatus && !bootstrapStatus.installed && bootstrapHelpOpen ? (
         <BootstrapHelpModal status={bootstrapStatus} onClose={() => setBootstrapHelpOpen(false)} onRestart={() => window.codexDesktop.restartApp()} />
+      ) : null}
+
+      {historyDeleteTarget ? (
+        <DeleteHistoryModal
+          title={historyDeleteTarget.history.title}
+          onCancel={() => setHistoryDeleteTarget(undefined)}
+          onConfirm={() => { void confirmDeleteHistory(); }}
+        />
       ) : null}
 
       {projectOnboardingOpen ? (
@@ -878,7 +1008,7 @@ function App(): React.ReactElement {
         ) : null}
 
         <section className="composer-panel">
-          {commandMenu ? <CommandMenu mode={commandMenu} skills={enabledSkills} files={availableFiles} onSelectSkill={selectSkill} onSelectFile={selectFile} /> : null}
+          {commandMenu ? <CommandMenu mode={commandMenu} query={commandQuery} activeIndex={commandActiveIndex} items={commandItems} onSelect={selectCommandItem} /> : null}
           {selectedSkills.length > 0 || selectedFiles.length > 0 ? <ReferenceChips skills={selectedSkills} files={selectedFiles} onRemoveSkill={removeSkill} onRemoveFile={removeFile} /> : null}
           {attachments.length > 0 ? <ComposerAttachments attachments={attachments} onRemove={removeAttachment} /> : null}
           <textarea ref={composerTextareaRef} value={input} onChange={(event) => handleComposerChange(event.target.value)} onPaste={(event) => { void handleComposerPaste(event); }} onKeyDown={handleComposerKeyDown} placeholder={session ? 'Ask for follow-up changes' : 'Ask Codex anything, @ to add files, / for commands'} disabled={activeStatus === 'running'} />
@@ -1024,6 +1154,41 @@ function ThreadSpinner(): React.ReactElement {
     <svg className="thread-spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-label="Running" xmlns="http://www.w3.org/2000/svg">
       <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="38" strokeDashoffset="10" />
     </svg>
+  );
+}
+
+function DeleteThreadIcon(): React.ReactElement {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="14" height="4" rx="1.2" />
+      <path d="M4.5 8v7.5A1.5 1.5 0 0 0 6 17h8a1.5 1.5 0 0 0 1.5-1.5V8" />
+      <path d="M8 11.5h4" />
+    </svg>
+  );
+}
+
+function DeleteHistoryModal({ title, onCancel, onConfirm }: { title: string; onCancel: () => void; onConfirm: () => void }): React.ReactElement {
+  return (
+    <div className="skill-modal-layer" role="dialog" aria-modal="true" onMouseDown={onCancel}>
+      <section className="skill-modal delete-history-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="skill-modal-close" type="button" onClick={onCancel}>×</button>
+        <div className="skill-modal-header delete-history-header">
+          <div>
+            <span className="delete-history-icon"><DeleteThreadIcon /></span>
+            <h2>Delete thread?</h2>
+          </div>
+        </div>
+        <div className="skill-modal-body delete-history-body">
+          <p>This will remove the local Codex history file for this conversation.</p>
+          <strong>{title}</strong>
+        </div>
+        <footer className="skill-modal-actions delete-history-actions">
+          <button type="button" onClick={onCancel}>Cancel</button>
+          <span />
+          <button className="danger" type="button" onClick={onConfirm}>Delete</button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -1195,7 +1360,7 @@ function BootstrapHelpModal({ status, onClose, onRestart }: { status: CodexBoots
           </div>
           <div className="bootstrap-help-section">
             <h3>Commands</h3>
-            <pre>{isWindows ? 'powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"\ncodex --version' : 'curl -fsSL https://chatgpt.com/codex/install.sh | sh\ncodex --version'}</pre>
+            <pre>{'npm install -g @openai/codex\ncodex --version'}</pre>
           </div>
           <p className="bootstrap-help-note">Git is not required for this startup check. The app only verifies that <code>codex --version</code> can run.</p>
         </div>
@@ -1526,35 +1691,35 @@ function UserMessage({ text }: { text: string }): React.ReactElement {
   );
 }
 
-function CommandMenu({ mode, skills, files, onSelectSkill, onSelectFile }: {
+function CommandMenu({ mode, query, activeIndex, items, onSelect }: {
   mode: 'skills' | 'files';
-  skills: CodexSkillInfo[];
-  files: ProjectFileInfo[];
-  onSelectSkill: (skill: CodexSkillInfo) => void;
-  onSelectFile: (file: ProjectFileInfo) => void;
+  query: string;
+  activeIndex: number;
+  items: Array<CodexSkillInfo | ProjectFileInfo>;
+  onSelect: (item: CodexSkillInfo | ProjectFileInfo) => void;
 }): React.ReactElement {
-  const skillItems = skills.slice(0, 12);
-  const fileItems = files.slice(0, 18);
   return (
     <div className="command-menu">
-      <div className="command-search">Search</div>
+      <div className="command-search">Search {mode === 'files' ? 'project files' : 'skills'}{query ? <span>{query}</span> : null}</div>
       {mode === 'skills' ? (
         <>
           <div className="command-section">Skills</div>
-          {skillItems.map((skill) => (
-            <button className="command-item" type="button" key={skill.id} onClick={() => onSelectSkill(skill)}>
+          {(items as CodexSkillInfo[]).map((skill, index) => (
+            <button className={`command-item ${index === activeIndex ? 'active' : ''}`} type="button" key={skill.id} onClick={() => onSelect(skill)}>
               <span className="command-icon">◈</span><strong>{skill.name}</strong><span>{skill.description}</span><em>Personal</em>
             </button>
           ))}
+          {items.length === 0 ? <div className="command-empty">No matching skills</div> : null}
         </>
       ) : (
         <>
           <div className="command-section">Files</div>
-          {fileItems.map((file) => (
-            <button className="command-item" type="button" key={file.path} onClick={() => onSelectFile(file)}>
+          {(items as ProjectFileInfo[]).map((file, index) => (
+            <button className={`command-item ${index === activeIndex ? 'active' : ''}`} type="button" key={file.path} onClick={() => onSelect(file)}>
               <span className="command-icon">▤</span><strong>{file.relativePath}</strong><span>{file.path}</span>
             </button>
           ))}
+          {items.length === 0 ? <div className="command-empty">No matching files</div> : null}
         </>
       )}
     </div>

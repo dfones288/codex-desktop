@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { projectCandidatesFromHistories, parseSessionHistoryLines, parseSessionMessagesLines, relativeTimeLabel } from '../src/main/codexHistory.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { deleteCodexHistoryFile, projectCandidatesFromHistories, parseSessionHistoryLines, parseSessionMessagesLines, relativeTimeLabel } from '../src/main/codexHistory.js';
 
 const lines = [
   JSON.stringify({ timestamp: '2026-06-21T05:25:00.066Z', type: 'session_meta', payload: { id: 'thread-1', cwd: '/tmp/project', timestamp: '2026-06-21T05:24:57.616Z' } }),
@@ -116,5 +119,27 @@ describe('relativeTimeLabel', () => {
   it('formats recent sessions compactly', () => {
     expect(relativeTimeLabel('2026-06-21T05:20:00.000Z', new Date('2026-06-21T05:25:00.000Z'))).toBe('5m');
     expect(relativeTimeLabel('2026-06-20T05:25:00.000Z', new Date('2026-06-21T05:25:00.000Z'))).toBe('1d');
+  });
+});
+
+describe('deleteCodexHistoryFile', () => {
+  it('deletes a jsonl session file inside the Codex sessions directory', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-history-delete-'));
+    const sessionDir = path.join(codexHome, 'sessions', '2026', '06', '21');
+    const filePath = path.join(sessionDir, 'thread.jsonl');
+    await fs.mkdir(sessionDir, { recursive: true });
+    await fs.writeFile(filePath, '{}\n');
+
+    await deleteCodexHistoryFile(filePath, codexHome);
+
+    await expect(fs.stat(filePath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects paths outside the Codex sessions directory', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-history-delete-'));
+    const outside = path.join(codexHome, 'config.toml');
+    await fs.writeFile(outside, '');
+
+    await expect(deleteCodexHistoryFile(outside, codexHome)).rejects.toThrow('outside Codex sessions');
   });
 });

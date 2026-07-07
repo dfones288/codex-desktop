@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { CodexDesktopApi, CodexExitEvent, CodexOutputEvent, OpenExternalTargetRequest, ReadLocalImageRequest, ResumeSessionRequest, SavePastedImageRequest, SendInputRequest, StartSessionRequest, StopSessionRequest, SwitchGitBranchRequest } from '../shared/types.js';
+import type { CodexDesktopApi, CodexExitEvent, CodexOutputEvent, DeleteHistoryRequest, OpenExternalTargetRequest, ReadLocalImageRequest, ResumeSessionRequest, SavePastedImageRequest, SendInputRequest, StartSessionRequest, StopSessionRequest, SwitchGitBranchRequest } from '../shared/types.js';
 
 const channels = {
   startSession: 'codex:start-session',
@@ -10,6 +10,7 @@ const channels = {
   listHistories: 'codex:list-histories',
   listModels: 'codex:list-models',
   listSkills: 'codex:list-skills',
+  deleteHistory: 'codex:delete-history',
   getSkillDetail: 'codex:get-skill-detail',
   setSkillEnabled: 'codex:set-skill-enabled',
   uninstallSkill: 'codex:uninstall-skill',
@@ -37,6 +38,7 @@ const api: CodexDesktopApi = {
   stopSession: (request: StopSessionRequest) => ipcRenderer.invoke(channels.stopSession, request),
   getSession: (sessionId: string) => ipcRenderer.invoke(channels.getSession, sessionId),
   listHistories: (cwd: string) => ipcRenderer.invoke(channels.listHistories, cwd),
+  deleteHistory: (request: DeleteHistoryRequest) => ipcRenderer.invoke(channels.deleteHistory, request),
   listModels: () => ipcRenderer.invoke(channels.listModels),
   listSkills: () => ipcRenderer.invoke(channels.listSkills),
   getSkillDetail: (skillId: string) => ipcRenderer.invoke(channels.getSkillDetail, skillId),
