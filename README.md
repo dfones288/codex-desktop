@@ -323,10 +323,18 @@ npm run build
 
 Please keep changes focused and include tests for command parsing, history parsing, or renderer helper behavior when possible.
 
-## License
-
-Add a license before publishing the repository publicly. MIT is a common choice for developer tooling, but choose the license that matches your distribution goals.
-
 ## Disclaimer
 
 Codex Desktop is an independent desktop wrapper around the local Codex CLI. It is not an official OpenAI product. You are responsible for your local Codex CLI installation, account configuration, model access, and any commands you authorize Codex to run.
+
+## License
+
+This project is open source and may be used, modified, and distributed for personal and commercial purposes.
+
+Commercial use must clearly attribute the original source, including the project name and repository link:
+
+Codex Desktop - https://github.com/dfones288/codex-desktop
+
+You may include the attribution in your product documentation, about page, credits page, website, or other visible accompanying materials.
+
+
