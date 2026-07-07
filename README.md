@@ -1,3 +1,22 @@
+<div align="center">
+
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933.svg?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Electron](https://img.shields.io/badge/Electron-30+-47848F.svg?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![node--pty](https://img.shields.io/badge/node--pty-1.0+-339933.svg?logo=nodedotjs&logoColor=white)](https://github.com/microsoft/node-pty)
+[![Codex](https://img.shields.io/badge/Codex-Ready-000000.svg)](https://openai.com/codex/)
+
+
+
+<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
+
+**A desktop client for Windows and Mac for the local Codex CLI**
+
+English | [中文](README_CN.md) | [日本語](README_JA.md)
+
+</div>
+
 # Codex Desktop
 ![image](images/ScreenShot_2026-07-07_105628_935.png)
 
@@ -336,5 +355,3 @@ Commercial use must clearly attribute the original source, including the project
 Codex Desktop - https://github.com/dfones288/codex-desktop
 
 You may include the attribution in your product documentation, about page, credits page, website, or other visible accompanying materials.
-
-
